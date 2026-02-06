@@ -49,4 +49,4 @@ You can run this repo as a "binder".  The [mybinder.org](https://mybinder.org) p
 https://mybinder.org/v2/gh/eco4cast/neon4cast-example.git/HEAD?urlpath=rstudio
 
 ## Contacts
-Emily Kim: ekim7bu.edu
+Emily Kim: ekim7@bu.edu
