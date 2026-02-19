@@ -29,8 +29,8 @@ targets_recent <- targets %>%
 
 # get met drivers
 site_meta <- download_site_meta()
+met <- download_met_drivers(site_meta, past_days = 60) 
 
-met <- download_met_drivers(site_meta, past_days = 60)
 
 # visualization - target time series
 p_targets <- targets_recent %>%
