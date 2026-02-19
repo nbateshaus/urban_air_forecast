@@ -18,8 +18,6 @@ download_site_meta <- function(){
   readr::read_csv(url, col_types = cols())
 }
 
-
-# --- 3) 输入变量示例：Open-Meteo 气象（不需要 key，适合 milestone3） ---
 ##' Download met drivers
 ##' @return metadata dataframe
 download_met_drivers <- function(site_meta, past_days = 60) {
