@@ -59,7 +59,13 @@ Updates on milestones and the scripts to run will be written here.
 --completed--
 
 **Milestone 3**: Data download and visualization\
-Run Main_milestone3.R
+--completed--
+
+**Milestone 4**: Dynamic Models
+--completed--
+
+**Milestone 5**: Calibration
+Run Main_milestone5.R
 
 ## Contacts
 Emily Kim: ekim7@bu.edu\
