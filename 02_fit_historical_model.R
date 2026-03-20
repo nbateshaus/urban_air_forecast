@@ -205,7 +205,8 @@ write_csv(dat, paste0(prefix, "_fit_data.csv"))
 mat <- do.call(rbind, lapply(samples, as.matrix))
 
 monitor_pars <- c(
-  "alpha", "phi", "beta_temp", "beta_wind", "beta_precip",
+  "alpha_0", "alpha_1", "alpha_2",
+  "beta_temp", "beta_wind", "beta_precip",
   "sigma_proc", "sigma_obs"
 )
 
