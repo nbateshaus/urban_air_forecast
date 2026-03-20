@@ -103,26 +103,28 @@ if (nrow(dat) < 40) {
 N <- nrow(dat)
 
 # 4. Bayesian state-space model -----------------------------------
-
 # latent state x[t] is log(PM2.5 + 1)
+
 code <- nimbleCode({
-  alpha_0     ~ dnorm(0, sd = 3)
-  alpha_1     ~ dnorm(0, sd = 1)
+  alpha ~ dnorm(0, sd = 3)
+  phi   ~ dunif(-0.95, 0.95)
+  
   beta_temp   ~ dnorm(0, sd = 1)
   beta_wind   ~ dnorm(0, sd = 1)
   beta_precip ~ dnorm(0, sd = 1)
   
-  sigma_proc ~ dgamma(2, 2)
-  sigma_obs  ~ dgamma(2, 2)
+  # observation noise should be smaller than process noise
+  sigma_obs  ~ dunif(0, 0.35)
+  sigma_proc ~ dunif(0, 3)
   
   x[1] ~ dnorm(y0, sd = 1)
   y[1] ~ dnorm(x[1], sd = sigma_obs)
-
+  
   for (t in 2:N) {
-    mu_x[t] <- alpha_0 +
-      alpha_1 * x[t - 1] +
-      beta_temp * temp_z[t] +
-      beta_wind * wind_z[t] +
+    mu_x[t] <- alpha +
+      phi * x[t - 1] +
+      beta_temp   * temp_z[t] +
+      beta_wind   * wind_z[t] +
       beta_precip * precip_z[t]
     
     x[t] ~ dnorm(mu_x[t], sd = sigma_proc)
@@ -131,10 +133,10 @@ code <- nimbleCode({
 })
 
 constants <- list(
-  N = N,
-  y0 = dat$y[1],
-  temp_z = dat$temp_z,
-  wind_z = dat$wind_z,
+  N        = N,
+  y0       = dat$y[1],
+  temp_z   = dat$temp_z,
+  wind_z   = dat$wind_z,
   precip_z = dat$precip_z
 )
 
@@ -144,13 +146,13 @@ data_list <- list(
 
 inits <- function() {
   list(
-    alpha_0 = 0,
-    alpha_1 = 0,
+    alpha = 0,
+    phi = 0.5,
     beta_temp = 0,
     beta_wind = 0,
     beta_precip = 0,
-    sigma_proc = 1,
-    sigma_obs = 1,
+    sigma_obs = 0.10,
+    sigma_proc = 0.50,
     x = dat$y + rnorm(N, 0, 0.05)
   )
 }
@@ -167,9 +169,10 @@ cmodel <- compileNimble(model)
 conf <- configureMCMC(
   model,
   monitors = c(
-    "alpha_0", "alpha_1",
+    "alpha", "phi",
     "beta_temp", "beta_wind", "beta_precip",
-    "sigma_proc", "sigma_obs", "x"
+    "sigma_obs", "sigma_proc",
+    "x"
   )
 )
 
@@ -178,8 +181,8 @@ cmcmc <- compileNimble(mcmc, project = model)
 
 samples <- runMCMC(
   cmcmc,
-  niter = 25000,
-  nburnin = 5000,
+  niter = 30000,
+  nburnin = 10000,
   thin = 10,
   nchains = 4,
   samplesAsCodaMCMC = TRUE,
@@ -199,9 +202,9 @@ write_csv(dat, paste0(prefix, "_fit_data.csv"))
 mat <- do.call(rbind, lapply(samples, as.matrix))
 
 monitor_pars <- c(
-  "alpha_0", "alpha_1",
+  "alpha", "phi",
   "beta_temp", "beta_wind", "beta_precip",
-  "sigma_proc", "sigma_obs"
+  "sigma_obs", "sigma_proc"
 )
 
 param_summary <- tibble(
