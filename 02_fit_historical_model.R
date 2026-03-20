@@ -113,12 +113,12 @@ code <- nimbleCode({
   beta_wind   ~ dnorm(0, sd = 1)
   beta_precip ~ dnorm(0, sd = 1)
   
-  # observation noise should be smaller than process noise
-  sigma_obs  ~ dunif(0, 0.35)
+  # Only estimate process noise for now
   sigma_proc ~ dunif(0, 3)
   
+  # Fix observation noise to a small constant
   x[1] ~ dnorm(y0, sd = 1)
-  y[1] ~ dnorm(x[1], sd = sigma_obs)
+  y[1] ~ dnorm(x[1], sd = 0.10)
   
   for (t in 2:N) {
     mu_x[t] <- alpha +
@@ -128,15 +128,15 @@ code <- nimbleCode({
       beta_precip * precip_z[t]
     
     x[t] ~ dnorm(mu_x[t], sd = sigma_proc)
-    y[t] ~ dnorm(x[t], sd = sigma_obs)
+    y[t] ~ dnorm(x[t], sd = 0.10)
   }
 })
 
 constants <- list(
-  N        = N,
-  y0       = dat$y[1],
-  temp_z   = dat$temp_z,
-  wind_z   = dat$wind_z,
+  N = N,
+  y0 = dat$y[1],
+  temp_z = dat$temp_z,
+  wind_z = dat$wind_z,
   precip_z = dat$precip_z
 )
 
@@ -151,8 +151,7 @@ inits <- function() {
     beta_temp = 0,
     beta_wind = 0,
     beta_precip = 0,
-    sigma_obs = 0.10,
-    sigma_proc = 0.50,
+    sigma_proc = 0.5,
     x = dat$y + rnorm(N, 0, 0.05)
   )
 }
@@ -171,7 +170,7 @@ conf <- configureMCMC(
   monitors = c(
     "alpha", "phi",
     "beta_temp", "beta_wind", "beta_precip",
-    "sigma_obs", "sigma_proc",
+    "sigma_proc",
     "x"
   )
 )
