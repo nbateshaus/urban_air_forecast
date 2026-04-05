@@ -117,7 +117,7 @@ code <- nimbleCode({
   
   x[1] ~ dnorm(y0, sd = 1)
   y[1] ~ dnorm(x[1], sd = sigma_obs)
-
+  
   for (t in 2:N) {
     mu_x[t] <- alpha_0 +
       alpha_1 * x[t - 1] +
