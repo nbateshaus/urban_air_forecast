@@ -204,6 +204,13 @@ monitor_pars <- c(
   "sigma_proc", "sigma_obs"
 )
 
+for (var in monitor_pars) {
+  gelman.plot(
+    samples[, var, drop = FALSE]
+  )
+  abline(h = 1.05, col = "blue", lty = 3)
+}
+
 param_summary <- tibble(
   parameter = monitor_pars,
   mean   = colMeans(mat[, monitor_pars, drop = FALSE]),
@@ -232,3 +239,34 @@ write_csv(state_summary, paste0(prefix, "_state_summary.csv"))
 message("Milestone 5 model fit completed.")
 message("Site used: ", site_id)
 message("Files saved under outputs/milestone5/")
+
+state_summary |>
+  ggplot(aes(date)) +
+  geom_ribbon(aes(ymin=fitted_lo, ymax=fitted_hi, fill = "95% CI")) +
+  geom_point(aes(y=observed_pm25, color="observed", shape = "observed"), size = 4) +
+  geom_point(aes(y=fitted_med, color="fitted", shape = "fitted"), size = 4) +
+  theme_bw(base_size = 16) +
+  #coord_cartesian(xlim = c(as.Date("2018-01-01"), as.Date("2019-01-01"))) +
+  scale_color_manual(
+    name = NULL,
+    values = c(
+      "fitted" = "red",
+      "observed" = "black"
+    )
+  ) +
+  scale_shape_manual(
+    name = NULL,
+    values = c(
+      "fitted" = "x",
+      "observed" = "o"
+    )
+  ) +
+  scale_fill_manual(
+    name = NULL,
+    values = c(
+      "95% CI" = "lightblue"
+    )
+  ) +
+  ylab(bquote("PM2.5 Concentration" ~ (mu * g %.% m^-3))) +
+  xlab("Date") +
+  ggtitle("Fitted vs. Observed PM2.5 Concentration")
