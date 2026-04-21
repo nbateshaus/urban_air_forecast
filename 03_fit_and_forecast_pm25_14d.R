@@ -72,7 +72,7 @@ download_met_forecast_one_site <- function(site_meta_one, forecast_days) {
   # Go back to ereyesterday to be safe
   # (ereyesterday is an actual word that means the day before yesterday)
   today_date <- Sys.Date() |> with_tz("UTC") |> floor_date(unit = "days")
-  anchor_date <- today_date - duration(2, "days")
+  anchor_date <- today_date - days(2)
   # Arrow is not clever about date handling; simplify
   anchor_date <- as.character(anchor_date)
   # extend forecast horizon by 2 because our anchor date is ereyesterday
