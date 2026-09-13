@@ -1,0 +1,385 @@
+---
+title: "nik-tmp"
+output: html_document
+---
+
+# NOAA S3 Bucket
+
+```{r}
+noaa_forecast_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+noaa_forecast_path <- "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage2/reference_datetime=2024-10-01/site_id=150210"
+
+arrow::open_dataset(arrow::s3_bucket(
+    noaa_forecast_path,
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )) |> collect()
+```
+
+```{r}
+arrow::open_dataset(arrow::s3_bucket(
+    "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage2/reference_datetime=2024-10-01/site_id=150210",
+    endpoint_override = "https://minio-s3.apps.shift.nerc.mghpcc.org"
+)) |>
+  collect()
+```
+
+```{r}
+noaa_forecast_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+noaa_forecast_path <- "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage1/reference_datetime=2024-10-01/site_id=150210"
+
+z <- arrow::open_dataset(arrow::s3_bucket(
+    noaa_forecast_path,
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )) |> collect()
+```
+
+```{r}
+noaa_forecast_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+noaa_forecast_path <- "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage2/reference_datetime=2026-02-01/site_id=25-009-2006"
+
+arrow::open_dataset(arrow::s3_bucket(
+    noaa_forecast_path,
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )) |>
+  head() |>
+  collect()
+```
+
+# Forecasts
+
+```{r}
+noaa_forecast_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+noaa_forecast_path <- "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage1/reference_datetime=2026-02-01"
+
+stage1_bucket <- arrow::s3_bucket(
+    noaa_forecast_path,
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )
+arrow::open_dataset(stage1_bucket) |>
+  head() |>
+  collect()
+```
+
+Range of `horizon` is:
+```
+Time differences in secs
+[1]       0 3024000
+```
+
+neon4cast page says:
+
+> At each site, 31 ensemble member forecasts are provided at 3 hr intervals for the first 10 days, and 6 hr intervals for up to 35 days (840 hr horizon).
+
+So we should be able to pull at 60 * 60 * 24 * n_days intervals.
+
+```{r}
+x <- arrow::open_dataset(stage1_bucket) |>
+  slice_head(n=1) |>
+```
+
+```{r}
+noaa_forecast_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+noaa_forecast_path <- "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage1"
+
+stage1_bucket <- arrow::s3_bucket(
+    noaa_forecast_path,
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )
+
+# Today's forecast is probably not ready
+# Yesterday's forecast might not be ready
+# Go back to ereyesterday to be safe
+# (ereyesterday is an actual word that means the day before yesterday)
+today_date <- Sys.Date() |> with_tz("UTC")
+anchor_date <- today_date - 2
+
+forecast_14d <- arrow::open_dataset(stage1_bucket) |>
+  filter(reference_datetime == anchor_date) |>
+  filter(site_id == "25-025-0042") |>
+  # Temperature, precipitation, and wind
+  filter(variable %in% c("TMP", "APCP", "VGRD", "UGRD")) |>
+  # up to 14-day forecast, but our anchor date is ereyesterday
+  filter(horizon <= make_difftime(day = 16)) |>
+  # The rest of the filtering can't be done by Arrow :-(
+  collect()
+
+forecast_14d_trimmed <- forecast_14d |>
+  filter(datetime >= today_date) |>
+  pivot_wider(names_from = "variable", values_from = "prediction") |>
+  # One forecast per ensemble per day
+  mutate(date = floor_date(datetime, unit = "days")) |>
+  group_by(site_id, date) |>
+  summarize(
+    temperature_2m_mean = mean(TMP, na.rm = TRUE),
+    precipitation_sum = sum(APCP, na.rm = TRUE),
+    windspeed_10m_mean = mean(sqrt(UGRD^2 + VGRD^2), na.rm = TRUE),
+    .groups = "drop"
+  )
+  
+```
+
+# Sites
+
+For which sites are forecasts available?
+
+```{r}
+anchor_date_chr = as.character(anchor_date)
+
+arrow::open_dataset(stage1_bucket) |>
+  filter(reference_datetime == anchor_date_chr) |>
+  distinct(site_id) |>
+  collect()
+```
+
+```{r}
+noaa_forecast_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+noaa_forecast_path <- "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage2/reference_datetime=2026-02-01/site_id=25-009-2006"
+
+arrow::open_dataset(arrow::s3_bucket(
+    noaa_forecast_path,
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )) |>
+  head() |>
+  collect()
+```
+
+
+```{r}
+noaa_forecast_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+noaa_forecast_path <- "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage3/site_id=25-009-2006"
+
+arrow::open_dataset(arrow::s3_bucket(
+    noaa_forecast_path,
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )) |>
+  head() |>
+  collect()
+```
+
+
+```{r}
+my_bucket <- arrow::s3_bucket(
+    "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage2/reference_datetime=2026-02-01",
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )
+my_bucket$ls()
+```
+
+# Dates
+
+```{r}
+stage3_bucket <- arrow::s3_bucket(
+    "bu4cast-ci-read/challenges/project_id=bu4cast/drivers/stage3/site_id=25-009-5005",
+    endpoint_override = noaa_forecast_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )
+stage3_bucket$ls()
+```
+
+```{r}
+arrow::open_dataset(stage3_bucket) |>
+  distinct(datetime) |>
+  collect() |>
+  _$datetime |>
+  range()
+```
+
+
+```{r}
+bu_s3_endpoint <- "https://minio-s3.apps.shift.nerc.mghpcc.org"
+bucket_path <- "bu4cast-ci-write"
+
+bu_bucket <- arrow::s3_bucket(
+    bucket_path,
+    endpoint_override = bu_s3_endpoint,
+    access_key = Sys.getenv("OSN_KEY"),
+    secret_key = Sys.getenv("OSN_SECRET")
+  )
+```
+
+# Forecast Uncertainty
+
+```{r}
+forecast_25_025_0042_ref_2025_12_03 <- read_csv("outputs/data_assimilation/forecast_25-025-0042_ref_2025-12-03.csv")
+a <- forecast_25_025_0042_ref_2025_12_03 |>
+  group_by(site_id, reference_datetime, datetime) |>
+  summarize(
+    q025 = quantile(prediction, 0.025),
+    q500 = quantile(prediction, 0.5),
+    q975 = quantile(prediction, 0.975)
+  )
+
+forecast_25_025_0042_ref_2025_12_04 <- read_csv("outputs/data_assimilation/forecast_25-025-0042_ref_2025-12-04.csv")
+b <- forecast_25_025_0042_ref_2025_12_04 |>
+  group_by(site_id, reference_datetime, datetime) |>
+  summarize(
+    q025 = quantile(prediction, 0.025),
+    q500 = quantile(prediction, 0.5),
+    q975 = quantile(prediction, 0.975)
+  )
+
+forecast_25_025_0042_ref_2025_12_05 <- read_csv("outputs/data_assimilation/forecast_25-025-0042_ref_2025-12-05.csv")
+c <- forecast_25_025_0042_ref_2025_12_05 |>
+  group_by(site_id, reference_datetime, datetime) |>
+  summarize(
+    q025 = quantile(prediction, 0.025),
+    q500 = quantile(prediction, 0.5),
+    q975 = quantile(prediction, 0.975)
+  )
+
+forecast_25_025_0042_ref_2025_12_06 <- read_csv("outputs/data_assimilation/forecast_25-025-0042_ref_2025-12-06.csv")
+d <- forecast_25_025_0042_ref_2025_12_06 |>
+  group_by(site_id, reference_datetime, datetime) |>
+  summarize(
+    q025 = quantile(prediction, 0.025),
+    q500 = quantile(prediction, 0.5),
+    q975 = quantile(prediction, 0.975)
+  )
+
+forecast_25_025_0042_ref_2025_12_07 <- read_csv("outputs/data_assimilation/forecast_25-025-0042_ref_2025-12-07.csv")
+e <- forecast_25_025_0042_ref_2025_12_07 |>
+  group_by(site_id, reference_datetime, datetime) |>
+  summarize(
+    q025 = quantile(prediction, 0.025),
+    q500 = quantile(prediction, 0.5),
+    q975 = quantile(prediction, 0.975)
+  )
+
+forecast <- a |>
+  union_all(b) |>
+  union_all(c) |>
+  union_all(d) |>
+  union_all(e)
+
+```
+
+
+```{r}
+ggplot(forecast, aes(x = datetime)) +
+  geom_ribbon(aes(ymin = q025, ymax = q975, fill = reference_datetime, group = reference_datetime), alpha = 0.5) +
+  geom_line(aes(y = q500, color = reference_datetime, group = reference_datetime)) +
+  #facet_wrap(~reference_datetime) +
+  theme_bw() +
+  labs(fill = "Confidence Interval", color = "Median") +
+  ylab(bquote("PM2.5 Concentration" ~ (mu * g %.% m^-3))) +
+  xlab("Date") +
+  ggtitle("PM2.5 Forecast via Data Assimilation (site 25-025-0042)")
+
+```
+
+# Map
+
+```{r}
+sites <- read_rds("tmp/sites.rds")
+state_outlines <- map_data("state", region = c(
+    "Connecticut", "Massachusetts", "Rhode Island", "New Hampshire", "Vermont", "Maine"
+  )) |>
+  sfheaders::sf_polygon(
+    obj = _,
+    x = "long",
+    y = "lat",
+    polygon_id = "group"
+  ) |>
+  sf::`st_crs<-`(sf::st_crs("epsg:4326")) |>
+  terra::vect()
+sites_points <- sites |>
+  terra::vect(geom = c("site_long", "site_lat"))
+
+target_site <- sites_points |>
+  filter(site_id == "25-025-0042")
+
+```
+
+```{r}
+# Download tiles
+if (file.exists("tmp/basemap.tif")) {
+  basemap <- terra::rast("tmp/basemap.tif")
+} else {
+  basemap_area <- terra::ext(
+    -71.5,
+    -70.5,
+    42,
+    43
+  ) |>
+    terra::vect(crs = crs("epsg:4326"))
+  
+  basemap_webmercator <- basemap_area |>
+    terra::project(crs("epsg:3857")) |> # use webmercator
+    st_as_sf()
+  
+  basemap <- maptiles::get_tiles(
+    basemap_webmercator,
+    provider = "OpenStreetMap",
+    zoom = 9, # ~300m / pixel
+    crop = TRUE
+  )
+  
+  terra::writeRaster(basemap, "tmp/basemap.tif")
+}
+```
+
+
+```{r}
+ggplot() +
+  geom_spatraster_rgb(data = basemap) +
+#  geom_spatvector(
+#    data = state_outlines,
+#    color = "black",
+#    fill = "transparent"
+#  ) +
+  geom_spatvector(
+    data = sites_points,
+    mapping = aes(color = "Other Sites")
+  ) +
+  geom_spatvector(
+    data = target_site,
+    mapping = aes(color = "Target Site")
+  ) +
+  coord_sf(
+    crs = crs(state_outlines),
+    xlim = c(-71.5, -70.5),
+    ylim = c(42, 43)
+#    xlim = c(ext(ma_outline)$xmin, ext(ma_outline)$xmax),
+#    ylim = c(ext(ma_outline)$ymin, ext(ma_outline)$ymax)
+  ) +
+  theme_bw(base_size = 14) +
+  ggtitle("PM2.5 Sites in Massachusetts") +
+  theme(axis.text.x = element_text(angle = -30, hjust = 0, vjust = 1)) +
+  scale_color_manual(
+    name = NULL,
+    values = c(
+      "Other Sites" = "blue",
+      "Target Site" = "red"
+    )
+  ) +
+  annotation_scale(
+    location = "br",
+    pad_x = unit(0.45, "cm"),
+    pad_y = unit(0.1, "cm")
+  ) +
+  annotation_north_arrow(
+    location = "tr",
+    width = unit(0.75, "cm"),
+    pad_x = unit(-0.15, "cm"),
+    pad_y = unit(0.25, "cm"),
+    style = north_arrow_minimal
+  )
+
+```
